@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "id": "macro_recorder",
+  "version": "${version}",
+  "name": "Macro Recorder",
+  "description": "Nagrywanie i odtwarzanie makr gracza w Minecraft Java.",
+  "authors": ["Macro Recorder Team"],
+  "contact": {},
+  "license": "MIT",
+  "environment": "client",
+  "entrypoints": {
+    "client": ["pl.bimber.macro.MacroRecorderClient"]
+  },
+  "depends": {
+    "fabricloader": ">=0.18.1",
+    "minecraft": "~1.21.11",
+    "java": ">=21",
+    "fabric-api": "*"
+  }
+}
