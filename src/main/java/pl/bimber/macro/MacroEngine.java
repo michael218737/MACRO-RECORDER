@@ -2,6 +2,9 @@ package pl.bimber.macro;
 
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
 import net.minecraft.network.chat.Component;
 import org.lwjgl.glfw.GLFW;
 
@@ -172,17 +175,31 @@ final class MacroEngine {
     }
 
     private void setMouseButton(Minecraft client, int index, boolean pressed) {
-        if (client.options == null || client.player == null) return;
+        if (client.options == null || client.player == null || client.gameMode == null) return;
 
         KeyMapping key = index == 0 ? client.options.keyAttack : client.options.keyUse;
         if (pressed) {
-            // Use Minecraft's own input handlers so clicks trigger the same
-            // actions as real mouse presses (entities, blocks, items and GUIs).
             if (index == 0) {
-                client.startAttack();
+                // Perform an actual attack or begin breaking the targeted block.
+                if (client.hitResult instanceof EntityHitResult entityHit) {
+                    client.gameMode.attack(client.player, entityHit.getEntity());
+                } else if (client.hitResult instanceof BlockHitResult blockHit) {
+                    client.gameMode.startDestroyBlock(blockHit.getBlockPos(), blockHit.getDirection());
+                } else {
+                    client.player.swing(InteractionHand.MAIN_HAND);
+                }
             } else {
-                client.startUseItem();
+                // Perform the normal right-click interaction for the current target.
+                if (client.hitResult instanceof EntityHitResult entityHit) {
+                    client.gameMode.interact(client.player, entityHit.getEntity(), InteractionHand.MAIN_HAND);
+                } else if (client.hitResult instanceof BlockHitResult blockHit) {
+                    client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND, blockHit);
+                } else {
+                    client.gameMode.useItem(client.player, InteractionHand.MAIN_HAND);
+                }
             }
+        } else if (index == 0) {
+            client.gameMode.stopDestroyBlock();
         }
         key.setDown(pressed);
         playbackMouseHeld[index] = pressed;
