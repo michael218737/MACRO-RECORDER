@@ -3,6 +3,9 @@ package pl.bimber.macro;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.phys.BlockHitResult;
+import net.minecraft.world.phys.EntityHitResult;
 import org.lwjgl.glfw.GLFW;
 
 import java.io.IOException;
@@ -167,8 +170,28 @@ final class MacroEngine {
     }
 
     private void setMouseButton(Minecraft client, int button, int index, boolean pressed) {
-        client.mouseHandler.onPress(client.getWindow().handle(), button,
-                pressed ? GLFW.GLFW_PRESS : GLFW.GLFW_RELEASE, 0);
+        if (client.player == null || client.gameMode == null) return;
+
+        if (index == 0) {
+            if (pressed) {
+                if (client.hitResult instanceof EntityHitResult hit) {
+                    client.gameMode.attack(client.player, hit.getEntity());
+                } else if (client.hitResult instanceof BlockHitResult hit) {
+                    client.gameMode.startDestroyBlock(hit.getBlockPos(), hit.getDirection());
+                }
+            } else {
+                client.gameMode.stopDestroyBlock();
+            }
+        } else if (pressed) {
+            if (client.hitResult instanceof EntityHitResult hit) {
+                client.gameMode.interact(client.player, hit.getEntity(), InteractionHand.MAIN_HAND);
+            } else if (client.hitResult instanceof BlockHitResult hit) {
+                client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND, hit);
+            } else {
+                client.gameMode.useItem(client.player, InteractionHand.MAIN_HAND);
+            }
+        }
+
         playbackMouseHeld[index] = pressed;
     }
 
