@@ -1,6 +1,8 @@
 package pl.bimber.macro;
 
 import net.minecraft.client.KeyMapping;
+import net.minecraft.client.input.MouseButtonEvent;
+import net.minecraft.client.input.MouseButtonInfo;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.phys.BlockHitResult;
@@ -193,8 +195,9 @@ final class MacroEngine {
         }
         int button = index == 0 ? GLFW.GLFW_MOUSE_BUTTON_LEFT : GLFW.GLFW_MOUSE_BUTTON_RIGHT;
         if (client.screen != null) {
-            if (pressed) client.screen.mouseClicked(mouseX, mouseY, button);
-            else client.screen.mouseReleased(mouseX, mouseY, button);
+            MouseButtonEvent mouseEvent = new MouseButtonEvent(mouseX, mouseY, new MouseButtonInfo(button, 0));
+            if (pressed) client.screen.mouseClicked(mouseEvent, false);
+            else client.screen.mouseReleased(mouseEvent);
             playbackMouseHeld[index] = pressed;
             return;
         }
