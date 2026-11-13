@@ -174,9 +174,7 @@ final class MacroEngine {
 
         if (index == 0) {
             if (pressed) {
-                if (client.hitResult instanceof EntityHitResult hit) {
-                    client.gameMode.attack(client.player, hit.getEntity());
-                } else if (client.hitResult instanceof BlockHitResult hit) {
+                if (client.hitResult instanceof BlockHitResult hit) {
                     client.gameMode.startDestroyBlock(hit.getBlockPos(), hit.getDirection());
                 }
             } else {
