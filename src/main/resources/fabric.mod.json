@@ -8,6 +8,7 @@
   "contact": {},
   "license": "MIT",
   "environment": "client",
+  "mixins": ["macro_recorder.mixins.json"],
   "entrypoints": {
     "client": ["pl.bimber.macro.MacroRecorderClient"]
   },
