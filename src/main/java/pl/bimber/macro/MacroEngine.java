@@ -5,7 +5,6 @@ import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.phys.BlockHitResult;
-import net.minecraft.world.phys.EntityHitResult;
 import org.lwjgl.glfw.GLFW;
 
 import java.io.IOException;
@@ -181,12 +180,8 @@ final class MacroEngine {
                 client.gameMode.stopDestroyBlock();
             }
         } else if (pressed) {
-            if (client.hitResult instanceof EntityHitResult hit) {
-                client.gameMode.interact(client.player, hit.getEntity(), InteractionHand.MAIN_HAND);
-            } else if (client.hitResult instanceof BlockHitResult hit) {
+            if (client.hitResult instanceof BlockHitResult hit) {
                 client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND, hit);
-            } else {
-                client.gameMode.useItem(client.player, InteractionHand.MAIN_HAND);
             }
         }
 
