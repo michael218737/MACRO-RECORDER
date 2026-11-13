@@ -18,6 +18,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.Comparator;
 import java.util.List;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 final class MacroEngine {
     private enum Mode { IDLE, RECORDING, PLAYING }
@@ -26,6 +27,12 @@ final class MacroEngine {
         MOUSE_MOVE, MOUSE_LEFT, MOUSE_RIGHT, LOOP_END
     }
     private record Event(int tick, Action action, boolean pressed, String value) {}
+    private record RawMouseEvent(int button, int action, double x, double y) {}
+    private static final ConcurrentLinkedQueue<RawMouseEvent> RAW_MOUSE_EVENTS = new ConcurrentLinkedQueue<>();
+    static void captureMouseEvent(int button, int action, double x, double y) {
+        if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT || button == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
+            RAW_MOUSE_EVENTS.add(new RawMouseEvent(button, action, x, y));
+    }
 
     private Mode mode = Mode.IDLE;
     private final List<Event> events = new ArrayList<>();
@@ -44,6 +51,7 @@ final class MacroEngine {
         releasePlaybackKeys(client);
         releasePlaybackMouse(client);
         events.clear();
+        RAW_MOUSE_EVENTS.clear();
         tick = 0;
         previous = readMovementKeys(client);
         long window = client.getWindow().handle();
@@ -126,14 +134,15 @@ final class MacroEngine {
             lastMouseY = pos[1];
         }
 
-        int[] buttons = {GLFW.GLFW_MOUSE_BUTTON_LEFT, GLFW.GLFW_MOUSE_BUTTON_RIGHT};
-        Action[] actions = {Action.MOUSE_LEFT, Action.MOUSE_RIGHT};
-        for (int i = 0; i < buttons.length; i++) {
-            boolean down = GLFW.glfwGetMouseButton(window, buttons[i]) == GLFW.GLFW_PRESS;
-            if (down != previousMouse[i]) {
-                events.add(new Event(tick, actions[i], down, guiCursorPosition(client, pos)));
-                previousMouse[i] = down;
-            }
+        RawMouseEvent raw;
+        while ((raw = RAW_MOUSE_EVENTS.poll()) != null) {
+            int index = raw.button() == GLFW.GLFW_MOUSE_BUTTON_LEFT ? 0 : 1;
+            Action action = index == 0 ? Action.MOUSE_LEFT : Action.MOUSE_RIGHT;
+            boolean pressed = raw.action() == GLFW.GLFW_PRESS;
+            double scaledX = raw.x() * client.getWindow().getGuiScaledWidth() / Math.max(1, client.getWindow().getWidth());
+            double scaledY = raw.y() * client.getWindow().getGuiScaledHeight() / Math.max(1, client.getWindow().getHeight());
+            events.add(new Event(tick, action, pressed, scaledX + "," + scaledY));
+            previousMouse[index] = pressed;
         }
     }
 
