@@ -20,7 +20,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
-final class MacroEngine {
+public final class MacroEngine {
     private enum Mode { IDLE, RECORDING, PLAYING }
     private enum Action {
         FORWARD, BACK, LEFT, RIGHT, JUMP, SNEAK, SPRINT, COMMAND,
@@ -29,7 +29,7 @@ final class MacroEngine {
     private record Event(int tick, Action action, boolean pressed, String value) {}
     private record RawMouseEvent(int button, int action, double x, double y) {}
     private static final ConcurrentLinkedQueue<RawMouseEvent> RAW_MOUSE_EVENTS = new ConcurrentLinkedQueue<>();
-    static void captureMouseEvent(int button, int action, double x, double y) {
+    public static void captureMouseEvent(int button, int action, double x, double y) {
         if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT || button == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
             RAW_MOUSE_EVENTS.add(new RawMouseEvent(button, action, x, y));
     }
