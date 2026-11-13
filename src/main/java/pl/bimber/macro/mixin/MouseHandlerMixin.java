@@ -18,6 +18,6 @@ public abstract class MouseHandlerMixin {
         double[] x = new double[1];
         double[] y = new double[1];
         GLFW.glfwGetCursorPos(window, x, y);
-        MacroEngine.captureMouseEvent(button, action, x[0], y[0]);
+        MacroEngine.captureMouseEvent(button, action, input.modifiers(), x[0], y[0]);
     }
 }
