@@ -27,11 +27,11 @@ public final class MacroEngine {
         MOUSE_MOVE, MOUSE_LEFT, MOUSE_RIGHT, LOOP_END
     }
     private record Event(int tick, Action action, boolean pressed, String value) {}
-    private record RawMouseEvent(int button, int action, double x, double y) {}
+    private record RawMouseEvent(int button, int action, int modifiers, double x, double y) {}
     private static final ConcurrentLinkedQueue<RawMouseEvent> RAW_MOUSE_EVENTS = new ConcurrentLinkedQueue<>();
-    public static void captureMouseEvent(int button, int action, double x, double y) {
+    public static void captureMouseEvent(int button, int action, int modifiers, double x, double y) {
         if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT || button == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
-            RAW_MOUSE_EVENTS.add(new RawMouseEvent(button, action, x, y));
+            RAW_MOUSE_EVENTS.add(new RawMouseEvent(button, action, modifiers, x, y));
     }
 
     private Mode mode = Mode.IDLE;
@@ -141,7 +141,7 @@ public final class MacroEngine {
             boolean pressed = raw.action() == GLFW.GLFW_PRESS;
             double scaledX = raw.x() * client.getWindow().getGuiScaledWidth() / Math.max(1, client.getWindow().getWidth());
             double scaledY = raw.y() * client.getWindow().getGuiScaledHeight() / Math.max(1, client.getWindow().getHeight());
-            events.add(new Event(tick, action, pressed, scaledX + "," + scaledY));
+            events.add(new Event(tick, action, pressed, scaledX + "," + scaledY + "," + raw.modifiers()));
             previousMouse[index] = pressed;
         }
     }
@@ -196,15 +196,17 @@ public final class MacroEngine {
         String[] coordinates = position.split(",", 2);
         double mouseX = 0.0;
         double mouseY = 0.0;
-        if (coordinates.length == 2) {
+        int modifiers = 0;
+        if (coordinates.length >= 2) {
             try {
                 mouseX = Double.parseDouble(coordinates[0]);
                 mouseY = Double.parseDouble(coordinates[1]);
+                if (coordinates.length >= 3) modifiers = Integer.parseInt(coordinates[2]);
             } catch (NumberFormatException ignored) {}
         }
         int button = index == 0 ? GLFW.GLFW_MOUSE_BUTTON_LEFT : GLFW.GLFW_MOUSE_BUTTON_RIGHT;
         if (client.screen != null) {
-            MouseButtonEvent mouseEvent = new MouseButtonEvent(mouseX, mouseY, new MouseButtonInfo(button, 0));
+            MouseButtonEvent mouseEvent = new MouseButtonEvent(mouseX, mouseY, new MouseButtonInfo(button, modifiers));
             if (pressed) client.screen.mouseClicked(mouseEvent, false);
             else client.screen.mouseReleased(mouseEvent);
             playbackMouseHeld[index] = pressed;
