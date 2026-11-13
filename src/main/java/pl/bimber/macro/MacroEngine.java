@@ -38,6 +38,8 @@ public final class MacroEngine {
     private final List<Event> events = new ArrayList<>();
     private int tick;
     private int playbackIndex;
+    private double playbackSpeed = 1.00;
+    private double playbackAccumulator = 0.0;
     private boolean[] previous = new boolean[7];
     private final boolean[] playbackHeld = new boolean[7];
     private final boolean[] previousMouse = new boolean[2];
@@ -82,6 +84,7 @@ public final class MacroEngine {
         events.sort(Comparator.comparingInt(Event::tick));
         playbackIndex = 0;
         tick = 0;
+        playbackAccumulator = 0.0;
         for (int i = 0; i < playbackHeld.length; i++) playbackHeld[i] = false;
         for (int i = 0; i < playbackMouseHeld.length; i++) playbackMouseHeld[i] = false;
         mode = Mode.PLAYING;
@@ -110,7 +113,11 @@ public final class MacroEngine {
             recordMouse(client);
             tick++;
         } else if (mode == Mode.PLAYING) {
-            playTick(client);
+            playbackAccumulator += playbackSpeed;
+            while (playbackAccumulator >= 1.0 && mode == Mode.PLAYING) {
+                playTick(client);
+                playbackAccumulator -= 1.0;
+            }
         }
     }
 
@@ -313,6 +320,21 @@ public final class MacroEngine {
         if (mode == Mode.RECORDING) events.add(new Event(tick, Action.COMMAND, true, command));
     }
 
+    void decreasePlaybackSpeed(Minecraft client) {
+        int level = (int) Math.round(playbackSpeed * 4.0);
+        level = Math.max(1, level - 1);
+        playbackSpeed = level / 4.0;
+        message(client, String.format(java.util.Locale.ROOT, "Szybkość makra: %.2fx", playbackSpeed));
+    }
+
+    void increasePlaybackSpeed(Minecraft client) {
+        int level = (int) Math.round(playbackSpeed * 4.0);
+        level = Math.min(8, level + 1);
+        playbackSpeed = level / 4.0;
+        message(client, String.format(java.util.Locale.ROOT, "Szybkość makra: %.2fx", playbackSpeed));
+    }
+
+    double playbackSpeed() { return playbackSpeed; }
     boolean shouldShowHud() { return mode != Mode.IDLE; }
     boolean isRecording() { return mode == Mode.RECORDING; }
     String statusText() { return mode == Mode.RECORDING ? "● NAGRYWANIE" : "▶ ODTWARZANIE"; }
