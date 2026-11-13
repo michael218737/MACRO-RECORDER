@@ -3,8 +3,6 @@ package pl.bimber.macro;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
-import net.minecraft.world.InteractionHand;
-import net.minecraft.world.phys.BlockHitResult;
 import org.lwjgl.glfw.GLFW;
 
 import java.io.IOException;
@@ -20,7 +18,7 @@ final class MacroEngine {
     private enum Mode { IDLE, RECORDING, PLAYING }
     private enum Action {
         FORWARD, BACK, LEFT, RIGHT, JUMP, SNEAK, SPRINT, COMMAND,
-        MOUSE_MOVE, MOUSE_LEFT, MOUSE_RIGHT
+        MOUSE_MOVE, MOUSE_LEFT, MOUSE_RIGHT, LOOP_END
     }
     private record Event(int tick, Action action, boolean pressed, String value) {}
 
@@ -55,9 +53,10 @@ final class MacroEngine {
 
     void stopRecording(Minecraft client) {
         if (mode != Mode.RECORDING) return;
+        events.add(new Event(Math.max(1, tick), Action.LOOP_END, false, ""));
         mode = Mode.IDLE;
         save();
-        message(client, "Zapisano makro: " + events.size() + " zdarzeń.");
+        message(client, "Zapisano makro: " + (events.size() - 1) + " zdarzeń.");
     }
 
     void startPlayback(Minecraft client) {
@@ -154,8 +153,12 @@ final class MacroEngine {
                         } catch (NumberFormatException ignored) {}
                     }
                 }
-                case MOUSE_LEFT -> setMouseButton(client, GLFW.GLFW_MOUSE_BUTTON_LEFT, 0, event.pressed());
-                case MOUSE_RIGHT -> setMouseButton(client, GLFW.GLFW_MOUSE_BUTTON_RIGHT, 1, event.pressed());
+                case MOUSE_LEFT -> setMouseButton(client, 0, event.pressed());
+                case MOUSE_RIGHT -> setMouseButton(client, 1, event.pressed());
+                case LOOP_END -> {
+                    playbackIndex = 0;
+                    tick = 0;
+                }
                 default -> setMovementKey(client, event.action(), event.pressed());
             }
         }
@@ -168,23 +171,10 @@ final class MacroEngine {
         }
     }
 
-    private void setMouseButton(Minecraft client, int button, int index, boolean pressed) {
-        if (client.player == null || client.gameMode == null) return;
-
-        if (index == 0) {
-            if (pressed) {
-                if (client.hitResult instanceof BlockHitResult hit) {
-                    client.gameMode.startDestroyBlock(hit.getBlockPos(), hit.getDirection());
-                }
-            } else {
-                client.gameMode.stopDestroyBlock();
-            }
-        } else if (pressed) {
-            if (client.hitResult instanceof BlockHitResult hit) {
-                client.gameMode.useItemOn(client.player, InteractionHand.MAIN_HAND, hit);
-            }
-        }
-
+    private void setMouseButton(Minecraft client, int index, boolean pressed) {
+        if (client.options == null) return;
+        KeyMapping key = index == 0 ? client.options.keyAttack : client.options.keyUse;
+        key.setDown(pressed);
         playbackMouseHeld[index] = pressed;
     }
 
@@ -224,8 +214,8 @@ final class MacroEngine {
 
     private void releasePlaybackMouse(Minecraft client) {
         if (client == null || client.getWindow() == null) return;
-        if (playbackMouseHeld[0]) setMouseButton(client, GLFW.GLFW_MOUSE_BUTTON_LEFT, 0, false);
-        if (playbackMouseHeld[1]) setMouseButton(client, GLFW.GLFW_MOUSE_BUTTON_RIGHT, 1, false);
+        if (playbackMouseHeld[0]) setMouseButton(client, 0, false);
+        if (playbackMouseHeld[1]) setMouseButton(client, 1, false);
     }
 
     private void save() {
