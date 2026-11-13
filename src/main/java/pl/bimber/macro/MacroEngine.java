@@ -1,0 +1,182 @@
+package pl.bimber.macro;
+
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.network.chat.Component;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.Comparator;
+import java.util.List;
+
+final class MacroEngine {
+    private enum Mode { IDLE, RECORDING, PLAYING }
+    private enum Action { FORWARD, BACK, LEFT, RIGHT, JUMP, SNEAK, SPRINT, COMMAND }
+    private record Event(int tick, Action action, boolean pressed, String value) {}
+
+    private Mode mode = Mode.IDLE;
+    private final List<Event> events = new ArrayList<>();
+    private int tick;
+    private int playbackIndex;
+    private boolean[] previous = new boolean[7];
+    private final boolean[] playbackHeld = new boolean[7];
+    private final String currentName = "macro-1";
+
+    void startRecording(Minecraft client) {
+        if (client.player == null || mode != Mode.IDLE) return;
+        releasePlaybackKeys(client);
+        events.clear();
+        tick = 0;
+        previous = readMovementKeys(client);
+        mode = Mode.RECORDING;
+        message(client, "Rozpoczęto nagrywanie. F7 kończy makro.");
+    }
+
+    void stopRecording(Minecraft client) {
+        if (mode != Mode.RECORDING) return;
+        mode = Mode.IDLE;
+        save();
+        message(client, "Zapisano makro: " + events.size() + " zdarzeń.");
+    }
+
+    void startPlayback(Minecraft client) {
+        if (client.player == null || mode != Mode.IDLE) return;
+        load();
+        if (events.isEmpty()) {
+            message(client, "Brak nagrania. Najpierw nagraj makro klawiszem F6.");
+            return;
+        }
+        events.sort(Comparator.comparingInt(Event::tick));
+        playbackIndex = 0;
+        tick = 0;
+        for (int i = 0; i < playbackHeld.length; i++) playbackHeld[i] = false;
+        mode = Mode.PLAYING;
+        message(client, "Odtwarzanie makra. F9 zatrzymuje.");
+    }
+
+    void stopPlayback(Minecraft client) {
+        if (mode != Mode.PLAYING) return;
+        mode = Mode.IDLE;
+        releasePlaybackKeys(client);
+        message(client, "Zatrzymano odtwarzanie.");
+    }
+
+    void tick(Minecraft client) {
+        if (client.player == null) {
+            if (mode == Mode.PLAYING) {
+                mode = Mode.IDLE;
+                releasePlaybackKeys(client);
+            }
+            return;
+        }
+        if (mode == Mode.RECORDING) recordMovement(client);
+        else if (mode == Mode.PLAYING) playTick(client);
+    }
+
+    private void recordMovement(Minecraft client) {
+        boolean[] now = readMovementKeys(client);
+        Action[] actions = {Action.FORWARD, Action.BACK, Action.LEFT, Action.RIGHT,
+                Action.JUMP, Action.SNEAK, Action.SPRINT};
+        for (int i = 0; i < now.length; i++) {
+            if (now[i] != previous[i]) events.add(new Event(tick, actions[i], now[i], ""));
+        }
+        previous = now;
+        tick++;
+    }
+
+    private void playTick(Minecraft client) {
+        while (playbackIndex < events.size() && events.get(playbackIndex).tick() <= tick) {
+            Event event = events.get(playbackIndex++);
+            if (event.action() == Action.COMMAND) {
+                // Komenda jest wysyłana jako zwykła komenda gracza; serwer nadal sprawdza uprawnienia.
+                client.player.connection.sendCommand(event.value());
+            } else {
+                setMovementKey(client, event.action(), event.pressed());
+            }
+        }
+        tick++;
+        if (playbackIndex >= events.size()) {
+            mode = Mode.IDLE;
+            releasePlaybackKeys(client);
+            message(client, "Makro zakończone.");
+        }
+    }
+
+    private boolean[] readMovementKeys(Minecraft client) {
+        return new boolean[]{client.options.keyUp.isDown(), client.options.keyDown.isDown(),
+                client.options.keyLeft.isDown(), client.options.keyRight.isDown(),
+                client.options.keyJump.isDown(), client.options.keyShift.isDown(),
+                client.options.keySprint.isDown()};
+    }
+
+    private void setMovementKey(Minecraft client, Action action, boolean pressed) {
+        int index = switch (action) {
+            case FORWARD -> 0; case BACK -> 1; case LEFT -> 2; case RIGHT -> 3;
+            case JUMP -> 4; case SNEAK -> 5; case SPRINT -> 6; default -> -1;
+        };
+        if (index < 0) return;
+        KeyMapping key = switch (index) {
+            case 0 -> client.options.keyUp; case 1 -> client.options.keyDown;
+            case 2 -> client.options.keyLeft; case 3 -> client.options.keyRight;
+            case 4 -> client.options.keyJump; case 5 -> client.options.keyShift;
+            default -> client.options.keySprint;
+        };
+        key.setDown(pressed);
+        playbackHeld[index] = pressed;
+    }
+
+    private void releasePlaybackKeys(Minecraft client) {
+        if (client == null || client.options == null) return;
+        KeyMapping[] keys = {client.options.keyUp, client.options.keyDown, client.options.keyLeft,
+                client.options.keyRight, client.options.keyJump, client.options.keyShift,
+                client.options.keySprint};
+        for (int i = 0; i < keys.length; i++) {
+            if (playbackHeld[i]) keys[i].setDown(false);
+            playbackHeld[i] = false;
+        }
+    }
+
+    private void save() {
+        try {
+            Path dir = Path.of("config", "macro-recorder");
+            Files.createDirectories(dir);
+            List<String> lines = new ArrayList<>();
+            for (Event e : events) {
+                String value = Base64.getEncoder().encodeToString(e.value().getBytes(StandardCharsets.UTF_8));
+                lines.add(e.tick() + "|" + e.action().name() + "|" + e.pressed() + "|" + value);
+            }
+            Files.write(dir.resolve(currentName + ".mcr"), lines, StandardCharsets.UTF_8);
+        } catch (IOException ignored) {}
+    }
+
+    private void load() {
+        events.clear();
+        Path file = Path.of("config", "macro-recorder", currentName + ".mcr");
+        if (!Files.exists(file)) return;
+        try {
+            for (String line : Files.readAllLines(file, StandardCharsets.UTF_8)) {
+                String[] p = line.split("\\|", 4);
+                if (p.length != 4) continue;
+                String value = new String(Base64.getDecoder().decode(p[3]), StandardCharsets.UTF_8);
+                events.add(new Event(Integer.parseInt(p[0]), Action.valueOf(p[1]),
+                        Boolean.parseBoolean(p[2]), value));
+            }
+        } catch (Exception ignored) { events.clear(); }
+    }
+
+    void recordCommand(String command) {
+        if (mode == Mode.RECORDING) events.add(new Event(tick, Action.COMMAND, true, command));
+    }
+
+    boolean shouldShowHud() { return mode != Mode.IDLE; }
+    boolean isRecording() { return mode == Mode.RECORDING; }
+    String statusText() { return mode == Mode.RECORDING ? "● NAGRYWANIE" : "▶ ODTWARZANIE"; }
+
+    private void message(Minecraft client, String text) {
+        if (client.player != null) client.player.displayClientMessage(Component.literal("[Macro] " + text), false);
+    }
+}
