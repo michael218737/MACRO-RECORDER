@@ -172,8 +172,18 @@ final class MacroEngine {
     }
 
     private void setMouseButton(Minecraft client, int index, boolean pressed) {
-        if (client.options == null) return;
+        if (client.options == null || client.player == null) return;
+
         KeyMapping key = index == 0 ? client.options.keyAttack : client.options.keyUse;
+        if (pressed) {
+            // Use Minecraft's own input handlers so clicks trigger the same
+            // actions as real mouse presses (entities, blocks, items and GUIs).
+            if (index == 0) {
+                client.startAttack();
+            } else {
+                client.startUseItem();
+            }
+        }
         key.setDown(pressed);
         playbackMouseHeld[index] = pressed;
     }
