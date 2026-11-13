@@ -129,7 +129,7 @@ final class MacroEngine {
         for (int i = 0; i < buttons.length; i++) {
             boolean down = GLFW.glfwGetMouseButton(window, buttons[i]) == GLFW.GLFW_PRESS;
             if (down != previousMouse[i]) {
-                events.add(new Event(tick, actions[i], down, ""));
+                events.add(new Event(tick, actions[i], down, guiCursorPosition(client, pos)));
                 previousMouse[i] = down;
             }
         }
@@ -156,8 +156,8 @@ final class MacroEngine {
                         } catch (NumberFormatException ignored) {}
                     }
                 }
-                case MOUSE_LEFT -> setMouseButton(client, 0, event.pressed());
-                case MOUSE_RIGHT -> setMouseButton(client, 1, event.pressed());
+                case MOUSE_LEFT -> setMouseButton(client, 0, event.pressed(), event.value());
+                case MOUSE_RIGHT -> setMouseButton(client, 1, event.pressed(), event.value());
                 case LOOP_END -> {
                     playbackIndex = 0;
                     tick = 0;
@@ -174,9 +174,31 @@ final class MacroEngine {
         }
     }
 
-    private void setMouseButton(Minecraft client, int index, boolean pressed) {
-        if (client.options == null || client.player == null || client.gameMode == null) return;
+    private String guiCursorPosition(Minecraft client, double[] pos) {
+        double x = pos[0] * client.getWindow().getGuiScaledWidth() / Math.max(1, client.getWindow().getWidth());
+        double y = pos[1] * client.getWindow().getGuiScaledHeight() / Math.max(1, client.getWindow().getHeight());
+        return Double.toString(x) + "," + Double.toString(y);
+    }
 
+    private void setMouseButton(Minecraft client, int index, boolean pressed, String position) {
+        if (client.options == null || client.player == null) return;
+        String[] coordinates = position.split(",", 2);
+        double mouseX = 0.0;
+        double mouseY = 0.0;
+        if (coordinates.length == 2) {
+            try {
+                mouseX = Double.parseDouble(coordinates[0]);
+                mouseY = Double.parseDouble(coordinates[1]);
+            } catch (NumberFormatException ignored) {}
+        }
+        int button = index == 0 ? GLFW.GLFW_MOUSE_BUTTON_LEFT : GLFW.GLFW_MOUSE_BUTTON_RIGHT;
+        if (client.screen != null) {
+            if (pressed) client.screen.mouseClicked(mouseX, mouseY, button);
+            else client.screen.mouseReleased(mouseX, mouseY, button);
+            playbackMouseHeld[index] = pressed;
+            return;
+        }
+        if (client.gameMode == null) return;
         KeyMapping key = index == 0 ? client.options.keyAttack : client.options.keyUse;
         if (pressed) {
             if (index == 0) {
@@ -241,8 +263,8 @@ final class MacroEngine {
 
     private void releasePlaybackMouse(Minecraft client) {
         if (client == null || client.getWindow() == null) return;
-        if (playbackMouseHeld[0]) setMouseButton(client, 0, false);
-        if (playbackMouseHeld[1]) setMouseButton(client, 1, false);
+        if (playbackMouseHeld[0]) setMouseButton(client, 0, false, "0,0");
+        if (playbackMouseHeld[1]) setMouseButton(client, 1, false, "0,0");
     }
 
     private void save() {
