@@ -3,6 +3,7 @@
   "minVersion": "0.8",
   "package": "pl.bimber.macro.mixin",
   "compatibilityLevel": "JAVA_21",
+  "refmap": "macro_recorder.refmap.json",
   "client": ["MouseHandlerMixin"],
   "injectors": { "defaultRequire": 1 }
 }
