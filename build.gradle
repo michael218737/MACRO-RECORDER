@@ -9,11 +9,18 @@ base {
     archivesName = project.archives_base_name
 }
 
+loom {
+    mixin {
+        defaultRefmapName = "macro_recorder.refmap.json"
+    }
+}
+
 dependencies {
     minecraft "com.mojang:minecraft:${project.minecraft_version}"
     mappings loom.officialMojangMappings()
     modImplementation "net.fabricmc:fabric-loader:${project.loader_version}"
     modImplementation "net.fabricmc.fabric-api:fabric-api:${project.fabric_api_version}"
+    annotationProcessor "net.fabricmc:sponge-mixin:0.17.4+mixin.0.8.7"
 }
 
 processResources {
