@@ -1,5 +1,7 @@
 package pl.bimber.macro.mixin;
 
+import pl.bimber.macro.MacroEngine;
+
 import net.minecraft.client.MouseHandler;
 import org.lwjgl.glfw.GLFW;
 import org.spongepowered.asm.mixin.Mixin;
