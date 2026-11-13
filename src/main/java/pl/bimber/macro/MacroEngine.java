@@ -41,7 +41,7 @@ final class MacroEngine {
         events.clear();
         tick = 0;
         previous = readMovementKeys(client);
-        long window = client.getWindow().getHandle();
+        long window = client.getWindow().handle();
         previousMouse[0] = GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
         previousMouse[1] = GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_RIGHT) == GLFW.GLFW_PRESS;
         double[] pos = cursorPosition(window);
@@ -111,7 +111,7 @@ final class MacroEngine {
     }
 
     private void recordMouse(Minecraft client) {
-        long window = client.getWindow().getHandle();
+        long window = client.getWindow().handle();
         double[] pos = cursorPosition(window);
         if (Math.abs(pos[0] - lastMouseX) >= 1.0 || Math.abs(pos[1] - lastMouseY) >= 1.0) {
             events.add(new Event(tick, Action.MOUSE_MOVE, false,
@@ -147,7 +147,7 @@ final class MacroEngine {
                     String[] coordinates = event.value().split(",", 2);
                     if (coordinates.length == 2) {
                         try {
-                            GLFW.glfwSetCursorPos(client.getWindow().getHandle(),
+                            GLFW.glfwSetCursorPos(client.getWindow().handle(),
                                     Double.parseDouble(coordinates[0]), Double.parseDouble(coordinates[1]));
                         } catch (NumberFormatException ignored) {}
                     }
@@ -167,7 +167,7 @@ final class MacroEngine {
     }
 
     private void setMouseButton(Minecraft client, int button, int index, boolean pressed) {
-        client.mouseHandler.onPress(client.getWindow().getHandle(), button,
+        client.mouseHandler.onPress(client.getWindow().handle(), button,
                 pressed ? GLFW.GLFW_PRESS : GLFW.GLFW_RELEASE, 0);
         playbackMouseHeld[index] = pressed;
     }
