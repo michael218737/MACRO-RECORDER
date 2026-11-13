@@ -3,6 +3,7 @@ package pl.bimber.macro;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
+import org.lwjgl.glfw.GLFW;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -15,7 +16,10 @@ import java.util.List;
 
 final class MacroEngine {
     private enum Mode { IDLE, RECORDING, PLAYING }
-    private enum Action { FORWARD, BACK, LEFT, RIGHT, JUMP, SNEAK, SPRINT, COMMAND }
+    private enum Action {
+        FORWARD, BACK, LEFT, RIGHT, JUMP, SNEAK, SPRINT, COMMAND,
+        MOUSE_MOVE, MOUSE_LEFT, MOUSE_RIGHT
+    }
     private record Event(int tick, Action action, boolean pressed, String value) {}
 
     private Mode mode = Mode.IDLE;
@@ -24,14 +28,25 @@ final class MacroEngine {
     private int playbackIndex;
     private boolean[] previous = new boolean[7];
     private final boolean[] playbackHeld = new boolean[7];
+    private final boolean[] previousMouse = new boolean[2];
+    private final boolean[] playbackMouseHeld = new boolean[2];
+    private double lastMouseX;
+    private double lastMouseY;
     private final String currentName = "macro-1";
 
     void startRecording(Minecraft client) {
         if (client.player == null || mode != Mode.IDLE) return;
         releasePlaybackKeys(client);
+        releasePlaybackMouse(client);
         events.clear();
         tick = 0;
         previous = readMovementKeys(client);
+        long window = client.getWindow().getWindow();
+        previousMouse[0] = GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_LEFT) == GLFW.GLFW_PRESS;
+        previousMouse[1] = GLFW.glfwGetMouseButton(window, GLFW.GLFW_MOUSE_BUTTON_RIGHT) == GLFW.GLFW_PRESS;
+        double[] pos = cursorPosition(window);
+        lastMouseX = pos[0];
+        lastMouseY = pos[1];
         mode = Mode.RECORDING;
         message(client, "Rozpoczęto nagrywanie. F7 kończy makro.");
     }
@@ -54,6 +69,7 @@ final class MacroEngine {
         playbackIndex = 0;
         tick = 0;
         for (int i = 0; i < playbackHeld.length; i++) playbackHeld[i] = false;
+        for (int i = 0; i < playbackMouseHeld.length; i++) playbackMouseHeld[i] = false;
         mode = Mode.PLAYING;
         message(client, "Odtwarzanie makra. F9 zatrzymuje.");
     }
@@ -62,6 +78,7 @@ final class MacroEngine {
         if (mode != Mode.PLAYING) return;
         mode = Mode.IDLE;
         releasePlaybackKeys(client);
+        releasePlaybackMouse(client);
         message(client, "Zatrzymano odtwarzanie.");
     }
 
@@ -70,11 +87,17 @@ final class MacroEngine {
             if (mode == Mode.PLAYING) {
                 mode = Mode.IDLE;
                 releasePlaybackKeys(client);
+                releasePlaybackMouse(client);
             }
             return;
         }
-        if (mode == Mode.RECORDING) recordMovement(client);
-        else if (mode == Mode.PLAYING) playTick(client);
+        if (mode == Mode.RECORDING) {
+            recordMovement(client);
+            recordMouse(client);
+            tick++;
+        } else if (mode == Mode.PLAYING) {
+            playTick(client);
+        }
     }
 
     private void recordMovement(Minecraft client) {
@@ -85,25 +108,68 @@ final class MacroEngine {
             if (now[i] != previous[i]) events.add(new Event(tick, actions[i], now[i], ""));
         }
         previous = now;
-        tick++;
+    }
+
+    private void recordMouse(Minecraft client) {
+        long window = client.getWindow().getWindow();
+        double[] pos = cursorPosition(window);
+        if (Math.abs(pos[0] - lastMouseX) >= 1.0 || Math.abs(pos[1] - lastMouseY) >= 1.0) {
+            events.add(new Event(tick, Action.MOUSE_MOVE, false,
+                    Double.toString(pos[0]) + "," + Double.toString(pos[1])));
+            lastMouseX = pos[0];
+            lastMouseY = pos[1];
+        }
+
+        int[] buttons = {GLFW.GLFW_MOUSE_BUTTON_LEFT, GLFW.GLFW_MOUSE_BUTTON_RIGHT};
+        Action[] actions = {Action.MOUSE_LEFT, Action.MOUSE_RIGHT};
+        for (int i = 0; i < buttons.length; i++) {
+            boolean down = GLFW.glfwGetMouseButton(window, buttons[i]) == GLFW.GLFW_PRESS;
+            if (down != previousMouse[i]) {
+                events.add(new Event(tick, actions[i], down, ""));
+                previousMouse[i] = down;
+            }
+        }
+    }
+
+    private double[] cursorPosition(long window) {
+        double[] x = new double[1];
+        double[] y = new double[1];
+        GLFW.glfwGetCursorPos(window, x, y);
+        return new double[]{x[0], y[0]};
     }
 
     private void playTick(Minecraft client) {
         while (playbackIndex < events.size() && events.get(playbackIndex).tick() <= tick) {
             Event event = events.get(playbackIndex++);
-            if (event.action() == Action.COMMAND) {
-                // Komenda jest wysyłana jako zwykła komenda gracza; serwer nadal sprawdza uprawnienia.
-                client.player.connection.sendCommand(event.value());
-            } else {
-                setMovementKey(client, event.action(), event.pressed());
+            switch (event.action()) {
+                case COMMAND -> client.player.connection.sendCommand(event.value());
+                case MOUSE_MOVE -> {
+                    String[] coordinates = event.value().split(",", 2);
+                    if (coordinates.length == 2) {
+                        try {
+                            GLFW.glfwSetCursorPos(client.getWindow().getWindow(),
+                                    Double.parseDouble(coordinates[0]), Double.parseDouble(coordinates[1]));
+                        } catch (NumberFormatException ignored) {}
+                    }
+                }
+                case MOUSE_LEFT -> setMouseButton(client, GLFW.GLFW_MOUSE_BUTTON_LEFT, 0, event.pressed());
+                case MOUSE_RIGHT -> setMouseButton(client, GLFW.GLFW_MOUSE_BUTTON_RIGHT, 1, event.pressed());
+                default -> setMovementKey(client, event.action(), event.pressed());
             }
         }
         tick++;
         if (playbackIndex >= events.size()) {
             mode = Mode.IDLE;
             releasePlaybackKeys(client);
+            releasePlaybackMouse(client);
             message(client, "Makro zakończone.");
         }
+    }
+
+    private void setMouseButton(Minecraft client, int button, int index, boolean pressed) {
+        client.mouseHandler.onPress(client.getWindow().getWindow(), button,
+                pressed ? GLFW.GLFW_PRESS : GLFW.GLFW_RELEASE, 0);
+        playbackMouseHeld[index] = pressed;
     }
 
     private boolean[] readMovementKeys(Minecraft client) {
@@ -138,6 +204,12 @@ final class MacroEngine {
             if (playbackHeld[i]) keys[i].setDown(false);
             playbackHeld[i] = false;
         }
+    }
+
+    private void releasePlaybackMouse(Minecraft client) {
+        if (client == null || client.getWindow() == null) return;
+        if (playbackMouseHeld[0]) setMouseButton(client, GLFW.GLFW_MOUSE_BUTTON_LEFT, 0, false);
+        if (playbackMouseHeld[1]) setMouseButton(client, GLFW.GLFW_MOUSE_BUTTON_RIGHT, 1, false);
     }
 
     private void save() {
