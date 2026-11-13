@@ -1,0 +1,7 @@
+{
+  "key.category.macro_recorder.controls": "Macro Recorder",
+  "key.macro_recorder.start": "Start recording",
+  "key.macro_recorder.stop": "Stop recording",
+  "key.macro_recorder.play": "Play macro",
+  "key.macro_recorder.cancel": "Stop playback"
+}
