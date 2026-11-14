@@ -22,6 +22,7 @@ public final class MacroRecorderClient implements ClientModInitializer {
     private static KeyMapping cancelKey;
     private static KeyMapping slowerKey;
     private static KeyMapping fasterKey;
+    private static KeyMapping settingsKey;
     private static final MacroEngine ENGINE = new MacroEngine();
 
     @Override
@@ -38,6 +39,9 @@ public final class MacroRecorderClient implements ClientModInitializer {
                 "key.macro_recorder.slower", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_F10, CATEGORY));
         fasterKey = KeyBindingHelper.registerKeyBinding(new KeyMapping(
                 "key.macro_recorder.faster", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_F12, CATEGORY));
+        settingsKey = KeyBindingHelper.registerKeyBinding(new KeyMapping(
+                "key.macro_recorder.settings", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_O, CATEGORY));
+        AutoTool.load();
 
         ClientSendMessageEvents.COMMAND.register(ENGINE::recordCommand);
 
@@ -48,6 +52,10 @@ public final class MacroRecorderClient implements ClientModInitializer {
             while (cancelKey.consumeClick()) ENGINE.stopPlayback(client);
             while (slowerKey.consumeClick()) ENGINE.decreasePlaybackSpeed(client);
             while (fasterKey.consumeClick()) ENGINE.increasePlaybackSpeed(client);
+            while (settingsKey.consumeClick()) {
+                if (client.screen == null) client.setScreen(new MacroSettingsScreen());
+            }
+            AutoTool.tick(client);
             ENGINE.tick(client);
         });
 
