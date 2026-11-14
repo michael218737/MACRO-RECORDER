@@ -61,7 +61,7 @@ public final class AutoTool {
                 bestSlot = slot;
             }
         }
-        inventory.selected = bestSlot;
+        inventory.setSelectedSlot(bestSlot);
     }
 
     private static Path configFile() {
