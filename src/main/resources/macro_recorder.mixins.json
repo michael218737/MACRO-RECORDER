@@ -5,7 +5,9 @@
   "compatibilityLevel": "JAVA_21",
   "refmap": "macro_recorder.refmap.json",
   "client": [
-    "MouseHandlerMixin"
+    "MouseHandlerMixin",
+    "KeyboardHandlerMixin",
+    "MinecraftModifierMixin"
   ],
   "injectors": {
     "defaultRequire": 1
