@@ -2,6 +2,7 @@ package pl.bimber.macro;
 
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.network.chat.Component;
 
 public final class MacroSettingsScreen extends Screen {
@@ -86,8 +87,10 @@ public final class MacroSettingsScreen extends Screen {
     }
 
     @Override
-    public boolean mouseClicked(double mouseX, double mouseY, int button) {
-        if (button == 0) {
+    public boolean mouseClicked(MouseButtonEvent event, boolean doubleClick) {
+        double mouseX = event.x();
+        double mouseY = event.y();
+        if (event.button() == 0) {
             int cardX = contentX + 18;
             int cardY = panelY + 222;
             int cardRight = panelX + panelW - 18;
@@ -100,7 +103,7 @@ public final class MacroSettingsScreen extends Screen {
                 return true;
             }
         }
-        return super.mouseClicked(mouseX, mouseY, button);
+        return false;
     }
 
     @Override
