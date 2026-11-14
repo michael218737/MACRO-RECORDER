@@ -5,8 +5,7 @@
   "compatibilityLevel": "JAVA_21",
   "refmap": "macro_recorder.refmap.json",
   "client": [
-    "MouseHandlerMixin",
-    "ScreenModifierMixin"
+    "MouseHandlerMixin"
   ],
   "injectors": {
     "defaultRequire": 1
