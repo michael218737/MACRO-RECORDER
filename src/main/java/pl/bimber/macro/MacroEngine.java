@@ -362,17 +362,28 @@ public final class MacroEngine {
         if (mode == Mode.RECORDING) events.add(new Event(tick, Action.COMMAND, true, command));
     }
 
+    private static final double[] PLAYBACK_SPEEDS = {
+            0.25, 0.50, 0.75, 1.00, 1.25, 1.50, 1.75, 2.00,
+            2.25, 2.50, 2.75, 3.00, 3.25, 3.50, 3.75, 4.00,
+            4.25, 4.50, 4.75, 5.00, 7.50, 10.00
+    };
+
+    private int playbackSpeedIndex() {
+        for (int i = 0; i < PLAYBACK_SPEEDS.length; i++) {
+            if (Math.abs(PLAYBACK_SPEEDS[i] - playbackSpeed) < 0.001) return i;
+        }
+        return 3; // 1.00x
+    }
+
     void decreasePlaybackSpeed(Minecraft client) {
-        int level = (int) Math.round(playbackSpeed * 4.0);
-        level = Math.max(1, level - 1);
-        playbackSpeed = level / 4.0;
+        int index = Math.max(0, playbackSpeedIndex() - 1);
+        playbackSpeed = PLAYBACK_SPEEDS[index];
         message(client, String.format(java.util.Locale.ROOT, "Szybkość makra: %.2fx", playbackSpeed));
     }
 
     void increasePlaybackSpeed(Minecraft client) {
-        int level = (int) Math.round(playbackSpeed * 4.0);
-        level = Math.min(8, level + 1);
-        playbackSpeed = level / 4.0;
+        int index = Math.min(PLAYBACK_SPEEDS.length - 1, playbackSpeedIndex() + 1);
+        playbackSpeed = PLAYBACK_SPEEDS[index];
         message(client, String.format(java.util.Locale.ROOT, "Szybkość makra: %.2fx", playbackSpeed));
     }
 
