@@ -200,7 +200,7 @@ public final class MacroEngine {
 
     private void setMouseButton(Minecraft client, int index, boolean pressed, String position) {
         if (client.options == null || client.player == null) return;
-        String[] coordinates = position.split(",", 2);
+        String[] coordinates = position.split(",", 3);
         double mouseX = 0.0;
         double mouseY = 0.0;
         int modifiers = 0;
@@ -208,14 +208,23 @@ public final class MacroEngine {
             try {
                 mouseX = Double.parseDouble(coordinates[0]);
                 mouseY = Double.parseDouble(coordinates[1]);
-                if (coordinates.length >= 3) modifiers = Integer.parseInt(coordinates[2]);
+            } catch (NumberFormatException ignored) {}
+        }
+        if (coordinates.length >= 3) {
+            try {
+                modifiers = Integer.parseInt(coordinates[2]);
             } catch (NumberFormatException ignored) {}
         }
         int button = index == 0 ? GLFW.GLFW_MOUSE_BUTTON_LEFT : GLFW.GLFW_MOUSE_BUTTON_RIGHT;
         if (client.screen != null) {
             MouseButtonEvent mouseEvent = new MouseButtonEvent(mouseX, mouseY, new MouseButtonInfo(button, modifiers));
-            if (pressed) client.screen.mouseClicked(mouseEvent, false);
-            else client.screen.mouseReleased(mouseEvent);
+            PlaybackModifiers.set(modifiers);
+            try {
+                if (pressed) client.screen.mouseClicked(mouseEvent, false);
+                else client.screen.mouseReleased(mouseEvent);
+            } finally {
+                PlaybackModifiers.clear();
+            }
             playbackMouseHeld[index] = pressed;
             return;
         }
