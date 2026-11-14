@@ -3,6 +3,7 @@ package pl.bimber.macro;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.client.input.MouseButtonEvent;
 import net.minecraft.client.input.MouseButtonInfo;
+import net.minecraft.client.input.KeyEvent;
 import net.minecraft.client.Minecraft;
 import net.minecraft.world.InteractionHand;
 import net.minecraft.world.phys.BlockHitResult;
@@ -24,10 +25,18 @@ public final class MacroEngine {
     private enum Mode { IDLE, RECORDING, PLAYING }
     private enum Action {
         FORWARD, BACK, LEFT, RIGHT, JUMP, SNEAK, SPRINT, COMMAND,
-        MOUSE_MOVE, MOUSE_LEFT, MOUSE_RIGHT, LOOP_END
+        MOUSE_MOVE, MOUSE_LEFT, MOUSE_RIGHT, KEY_PRESS, KEY_RELEASE, LOOP_END
     }
     private record Event(int tick, Action action, boolean pressed, String value) {}
     private record RawMouseEvent(int button, int action, int modifiers, double x, double y) {}
+    private record RawKeyEvent(int key, int scancode, int modifiers, int action) {}
+    private static final ConcurrentLinkedQueue<RawKeyEvent> RAW_KEY_EVENTS = new ConcurrentLinkedQueue<>();
+    public static void captureKeyEvent(int key, int scancode, int modifiers, int action) {
+        if (key == GLFW.GLFW_KEY_F6 || key == GLFW.GLFW_KEY_F7 || key == GLFW.GLFW_KEY_F8 ||
+                key == GLFW.GLFW_KEY_F9 || key == GLFW.GLFW_KEY_F10 || key == GLFW.GLFW_KEY_F12) return;
+        if (action == GLFW.GLFW_PRESS || action == GLFW.GLFW_RELEASE)
+            RAW_KEY_EVENTS.add(new RawKeyEvent(key, scancode, modifiers, action));
+    }
     private static final ConcurrentLinkedQueue<RawMouseEvent> RAW_MOUSE_EVENTS = new ConcurrentLinkedQueue<>();
     public static void captureMouseEvent(int button, int action, int modifiers, double x, double y) {
         if (button == GLFW.GLFW_MOUSE_BUTTON_LEFT || button == GLFW.GLFW_MOUSE_BUTTON_RIGHT)
@@ -54,6 +63,7 @@ public final class MacroEngine {
         releasePlaybackMouse(client);
         events.clear();
         RAW_MOUSE_EVENTS.clear();
+        RAW_KEY_EVENTS.clear();
         tick = 0;
         previous = readMovementKeys(client);
         long window = client.getWindow().handle();
@@ -111,6 +121,7 @@ public final class MacroEngine {
         if (mode == Mode.RECORDING) {
             recordMovement(client);
             recordMouse(client);
+            recordKeyboard(client);
             tick++;
         } else if (mode == Mode.PLAYING) {
             playbackAccumulator += playbackSpeed;
@@ -153,6 +164,16 @@ public final class MacroEngine {
         }
     }
 
+    private void recordKeyboard(Minecraft client) {
+        RawKeyEvent raw;
+        while ((raw = RAW_KEY_EVENTS.poll()) != null) {
+            if (client.screen == null) continue;
+            Action action = raw.action() == GLFW.GLFW_PRESS ? Action.KEY_PRESS : Action.KEY_RELEASE;
+            String value = raw.key() + "," + raw.scancode() + "," + raw.modifiers();
+            events.add(new Event(tick, action, raw.action() == GLFW.GLFW_PRESS, value));
+        }
+    }
+
     private double[] cursorPosition(long window) {
         double[] x = new double[1];
         double[] y = new double[1];
@@ -176,6 +197,7 @@ public final class MacroEngine {
                 }
                 case MOUSE_LEFT -> setMouseButton(client, 0, event.pressed(), event.value());
                 case MOUSE_RIGHT -> setMouseButton(client, 1, event.pressed(), event.value());
+                case KEY_PRESS, KEY_RELEASE -> replayKey(client, event);
                 case LOOP_END -> {
                     playbackIndex = 0;
                     tick = 0;
@@ -190,6 +212,17 @@ public final class MacroEngine {
             releasePlaybackMouse(client);
             message(client, "Makro zakończone.");
         }
+    }
+
+    private void replayKey(Minecraft client, Event event) {
+        if (client.screen == null) return;
+        String[] parts = event.value().split(",", 3);
+        if (parts.length != 3) return;
+        try {
+            KeyEvent keyEvent = new KeyEvent(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]), Integer.parseInt(parts[2]));
+            if (event.action() == Action.KEY_PRESS) client.screen.keyPressed(keyEvent);
+            else client.screen.keyReleased(keyEvent);
+        } catch (NumberFormatException ignored) {}
     }
 
     private String guiCursorPosition(Minecraft client, double[] pos) {
