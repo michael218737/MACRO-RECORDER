@@ -52,7 +52,7 @@ public final class AutoTool {
 
         var state = client.level.getBlockState(hit.getBlockPos());
         var inventory = client.player.getInventory();
-        int bestSlot = inventory.selected;
+        int bestSlot = inventory.getSelectedSlot();
         float bestSpeed = inventory.getItem(bestSlot).getDestroySpeed(state);
         for (int slot = 0; slot < 9; slot++) {
             float speed = inventory.getItem(slot).getDestroySpeed(state);
