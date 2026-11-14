@@ -29,13 +29,13 @@ public final class MacroEngine {
     }
     private record Event(int tick, Action action, boolean pressed, String value) {}
     private record RawMouseEvent(int button, int action, int modifiers, double x, double y) {}
-    private record RawKeyEvent(int key, int scancode, int modifiers, int action) {}
+    private record RawKeyEvent(int key, int scancode, int modifiers, int action, boolean inScreen) {}
     private static final ConcurrentLinkedQueue<RawKeyEvent> RAW_KEY_EVENTS = new ConcurrentLinkedQueue<>();
-    public static void captureKeyEvent(int key, int scancode, int modifiers, int action) {
+    public static void captureKeyEvent(int key, int scancode, int modifiers, int action, boolean inScreen) {
         if (key == GLFW.GLFW_KEY_F6 || key == GLFW.GLFW_KEY_F7 || key == GLFW.GLFW_KEY_F8 ||
                 key == GLFW.GLFW_KEY_F9 || key == GLFW.GLFW_KEY_F10 || key == GLFW.GLFW_KEY_F12) return;
         if (action == GLFW.GLFW_PRESS || action == GLFW.GLFW_RELEASE)
-            RAW_KEY_EVENTS.add(new RawKeyEvent(key, scancode, modifiers, action));
+            RAW_KEY_EVENTS.add(new RawKeyEvent(key, scancode, modifiers, action, inScreen));
     }
     private static final ConcurrentLinkedQueue<RawMouseEvent> RAW_MOUSE_EVENTS = new ConcurrentLinkedQueue<>();
     public static void captureMouseEvent(int button, int action, int modifiers, double x, double y) {
@@ -167,7 +167,7 @@ public final class MacroEngine {
     private void recordKeyboard(Minecraft client) {
         RawKeyEvent raw;
         while ((raw = RAW_KEY_EVENTS.poll()) != null) {
-            if (client.screen == null) continue;
+            if (!raw.inScreen()) continue;
             Action action = raw.action() == GLFW.GLFW_PRESS ? Action.KEY_PRESS : Action.KEY_RELEASE;
             String value = raw.key() + "," + raw.scancode() + "," + raw.modifiers();
             events.add(new Event(tick, action, raw.action() == GLFW.GLFW_PRESS, value));
