@@ -5,5 +5,6 @@
   "key.macro_recorder.play": "Odtwórz makro",
   "key.macro_recorder.cancel": "Zatrzymaj odtwarzanie",
   "key.macro_recorder.slower": "Zmniejsz szybkość makra",
-  "key.macro_recorder.faster": "Zwiększ szybkość makra"
+  "key.macro_recorder.faster": "Zwiększ szybkość makra",
+  "key.macro_recorder.settings": "Otwórz ustawienia Macro Recorder"
 }
